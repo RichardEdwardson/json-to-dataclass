@@ -1,4 +1,4 @@
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["json_to_dataclass"]
 __author__ = "Meiwen Dong <dongmeiwen5583@gmail.com>"
 
@@ -9,17 +9,21 @@ from dataclasses import make_dataclass
 
 def json_to_dataclass(data_json: str) -> Any:
     data = json.loads(data_json)
-    if isinstance(data, list):
-        return [json_to_dataclass(json.dumps(i)) for i in data]
-    elif isinstance(data, dict):
-        params_spec = []
-        for key in data.keys():
-            value = data[key]
-            value_unwrapped = json_to_dataclass(json.dumps(value))
-            data.update({key: value_unwrapped})
-            params_spec.append((key, type(value_unwrapped)))
+    is_data_list: bool = isinstance(data, list)
+    is_data_dict: bool = isinstance(data, dict)
 
-        result_cls = make_dataclass("", params_spec, kw_only=True)
-        return result_cls(**data)
-    else:
+    if not (is_data_dict or is_data_list):
         return data
+
+    def unwrapped(value):
+        return json_to_dataclass(json.dumps(value))
+
+    if is_data_list:
+        return [unwrapped(i) for i in data]
+    else:
+        json_keys = data.keys()
+        for key in json_keys:
+            data.update({key: unwrapped(data[key])})
+
+        result_cls = make_dataclass("", json_keys, kw_only=True)
+        return result_cls(**data)
